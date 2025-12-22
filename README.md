@@ -2,7 +2,9 @@
 
 A professional web application that analyzes suspicious email files (.eml format) to detect phishing attempts. Built with Flask and featuring a modern, responsive UI, this tool provides detailed risk assessments with visual reports showing threat levels, detected indicators, and safety recommendations.
 
-![Phishing Email Detector Demo](https://via.placeholder.com/800x400/2563eb/ffffff?text=Phishing+Email+Detector+Demo)
+
+**Live Demo**: https://phishingdetector-w38l.onrender.com/
+
 
 ## 🌟 Features
 
