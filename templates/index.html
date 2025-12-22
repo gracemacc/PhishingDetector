@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phishing Email Detector - Analyze Suspicious Emails</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-shield-alt me-2"></i>
+                Phishing Email Detector
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#how-it-works">How It Works</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#export-instructions">Export Instructions</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container my-5">
+        <!-- Hero Section -->
+        <section class="hero-section text-center py-5 mb-5">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="hero-icon mb-4">
+                        <i class="fas fa-file-medical fa-4x text-primary"></i>
+                    </div>
+                    <h1 class="display-4 fw-bold mb-3">Phishing Email Detector</h1>
+                    <p class="lead text-muted mb-4">
+                        Upload suspicious email files (.eml) and get instant analysis with detailed risk assessment. 
+                        Our advanced detection engine identifies phishing attempts using multiple security indicators.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Upload Section -->
+        <section class="upload-section mb-5">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card shadow-lg">
+                        <div class="card-body p-5">
+                            <h2 class="text-center mb-4">
+                                <i class="fas fa-upload me-2"></i>
+                                Upload Your Email File
+                            </h2>
+                            
+                            <!-- File Upload -->
+                            <form id="uploadForm" action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data">
+                                <div class="upload-zone mb-4" id="uploadZone">
+                                    <div class="upload-content text-center">
+                                        <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                        <h5 class="text-muted mb-2">Drag & Drop Email File Here</h5>
+                                        <p class="text-muted mb-3">or click to browse</p>
+                                        <input type="file" name="file" id="fileInput" accept=".eml,.msg,.txt" class="d-none">
+                                        <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('fileInput').click()">
+                                            <i class="fas fa-folder-open me-2"></i>
+                                            Choose File
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div id="fileInfo" class="alert alert-info d-none">
+                                    <i class="fas fa-file me-2"></i>
+                                    <span id="fileName"></span>
+                                    <button type="button" class="btn-close float-end" onclick="clearFile()"></button>
+                                </div>
+                                
+                                <div class="text-center">
+                                    <button type="submit" class="btn btn-primary btn-lg px-5" id="analyzeBtn" disabled>
+                                        <i class="fas fa-search me-2"></i>
+                                        Analyze Email
+                                    </button>
+                                </div>
+                            </form>
+                            
+                            <!-- Text Alternative -->
+                            <hr class="my-4">
+                            <div class="text-center">
+                                <p class="text-muted mb-3">Don't have a file? Paste the email source instead:</p>
+                                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#textForm">
+                                    <i class="fas fa-keyboard me-2"></i>
+                                    Paste Email Source
+                                </button>
+                            </div>
+                            
+                            <!-- Text Input Form -->
+                            <div class="collapse mt-3" id="textForm">
+                                <form action="{{ url_for('upload_file') }}" method="POST">
+                                    <div class="mb-3">
+                                        <label for="emailText" class="form-label">Email Source Code:</label>
+                                        <textarea class="form-control" id="emailText" name="email_text" rows="8" 
+                                                  placeholder="Paste the complete email source code here..."></textarea>
+                                    </div>
+                                    <div class="text-center">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-search me-2"></i>
+                                            Analyze Pasted Email
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Supported Formats -->
+        <section class="mb-5">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Supported Formats
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="format-item text-center">
+                                        <i class="fas fa-file-code fa-2x text-primary mb-2"></i>
+                                        <h6>.EML Files</h6>
+                                        <small class="text-muted">Standard email format</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="format-item text-center">
+                                        <i class="fas fa-file-alt fa-2x text-primary mb-2"></i>
+                                        <h6>.MSG Files</h6>
+                                        <small class="text-muted">Outlook message format</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="format-item text-center">
+                                        <i class="fas fa-file-text fa-2x text-primary mb-2"></i>
+                                        <h6>.TXT Files</h6>
+                                        <small class="text-muted">Plain text email source</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Export Instructions -->
+        <section id="export-instructions" class="mb-5">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="mb-0">
+                                <i class="fas fa-download me-2"></i>
+                                How to Export Email Files
+                            </h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="accordion" id="exportAccordion">
+                                <!-- Gmail Instructions -->
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#gmail">
+                                            <i class="fab fa-google me-2"></i>
+                                            Gmail
+                                        </button>
+                                    </h2>
+                                    <div id="gmail" class="accordion-collapse collapse show" data-bs-parent="#exportAccordion">
+                                        <div class="accordion-body">
+                                            <ol>
+                                                <li>Open the suspicious email</li>
+                                                <li>Click the <strong>three dots (⋮)</strong> in the top-right corner</li>
+                                                <li>Select <strong>"Show original"</strong></li>
+                                                <li>Click <strong>"Download Original"</strong></li>
+                                                <li>Save the .eml file to your computer</li>
+                                            </ol>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Outlook Instructions -->
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#outlook">
+                                            <i class="fab fa-microsoft me-2"></i>
+                                            Outlook (Web/Desktop)
+                                        </button>
+                                    </h2>
+                                    <div id="outlook" class="accordion-collapse collapse" data-bs-parent="#exportAccordion">
+                                        <div class="accordion-body">
+                                            <ol>
+                                                <li>Open the suspicious email</li>
+                                                <li>Click <strong>"File"</strong> in the menu</li>
+                                                <li>Select <strong>"Save As"</strong></li>
+                                                <li>Choose <strong>"Outlook Message Format"</strong> (.msg)</li>
+                                                <li>Save the file to your computer</li>
+                                            </ol>
+                                            <p class="mb-0"><strong>Alternative:</strong> Right-click the email → "View Source" → Copy and paste into our text input.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Yahoo Instructions -->
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#yahoo">
+                                            <i class="fab fa-yahoo me-2"></i>
+                                            Yahoo Mail
+                                        </button>
+                                    </h2>
+                                    <div id="yahoo" class="accordion-collapse collapse" data-bs-parent="#exportAccordion">
+                                        <div class="accordion-body">
+                                            <ol>
+                                                <li>Open the suspicious email</li>
+                                                <li>Click the <strong>"More"</strong> button (three dots)</li>
+                                                <li>Select <strong>"View Raw Message"</strong></li>
+                                                <li>Copy the entire source code</li>
+                                                <li>Paste it into our text input field</li>
+                                            </ol>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Apple Mail Instructions -->
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#apple">
+                                            <i class="fab fa-apple me-2"></i>
+                                            Apple Mail
+                                        </button>
+                                    </h2>
+                                    <div id="apple" class="accordion-collapse collapse" data-bs-parent="#exportAccordion">
+                                        <div class="accordion-body">
+                                            <ol>
+                                                <li>Open the suspicious email</li>
+                                                <li>Click <strong>"View"</strong> in the menu bar</li>
+                                                <li>Select <strong>"Message"</strong> → <strong>"Raw Source"</strong></li>
+                                                <li>Copy the entire source code</li>
+                                                <li>Paste it into our text input field</li>
+                                            </ol>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section id="how-it-works" class="mb-5">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <h3 class="text-center mb-4">How Our Detection Works</h3>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="feature-card text-center">
+                                <div class="feature-icon mb-3">
+                                    <i class="fas fa-search fa-3x text-primary"></i>
+                                </div>
+                                <h5>Header Analysis</h5>
+                                <p class="text-muted">Checks email headers for spoofing, authentication failures, and suspicious routing.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="feature-card text-center">
+                                <div class="feature-icon mb-3">
+                                    <i class="fas fa-user-shield fa-3x text-primary"></i>
+                                </div>
+                                <h5>Sender Verification</h5>
+                                <p class="text-muted">Analyzes sender information for typosquatting, free email abuse, and domain anomalies.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="feature-card text-center">
+                                <div class="feature-icon mb-3">
+                                    <i class="fas fa-link fa-3x text-primary"></i>
+                                </div>
+                                <h5>Link Reputation</h5>
+                                <p class="text-muted">Checks all URLs against Google Safe Browsing and VirusTotal databases.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-dark text-light py-4 mt-5">
+        <div class="container text-center">
+            <p>&copy; 2024 Phishing Email Detector. Built for security awareness and education.</p>
+            <p class="small text-muted">
+                This tool is for educational purposes. Always verify suspicious emails through official channels.
+            </p>
+        </div>
+    </footer>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="position-fixed top-0 end-0 p-3" style="z-index: 1050">
+                {% for message in messages %}
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <script>
+        // File upload handling
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+
+        // Drag and drop functionality
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('drag-over');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('drag-over');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            const allowedTypes = ['.eml', '.msg', '.txt'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (allowedTypes.includes(fileExtension)) {
+                fileName.textContent = file.name;
+                fileInfo.classList.remove('d-none');
+                analyzeBtn.disabled = false;
+            } else {
+                alert('Please select a valid email file (.eml, .msg, or .txt)');
+                fileInput.value = '';
+            }
+        }
+
+        function clearFile() {
+            fileInput.value = '';
+            fileInfo.classList.add('d-none');
+            analyzeBtn.disabled = true;
+        }
+
+        // Form submission
+        document.getElementById('uploadForm').addEventListener('submit', (e) => {
+            if (!fileInput.files.length) {
+                e.preventDefault();
+                alert('Please select a file to analyze.');
+            }
+        });
+    </script>
+</body>
+</html>

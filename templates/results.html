@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Results - Phishing Email Detector</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-shield-alt me-2"></i>
+                Phishing Email Detector
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="container my-5">
+        <!-- Progress Section -->
+        <div id="progressSection" class="mb-5">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <div class="mb-4">
+                                <div class="loading-spinner mx-auto mb-3"></div>
+                                <h4>Analyzing Email...</h4>
+                                <p class="text-muted">This may take a few moments while we check external databases.</p>
+                            </div>
+                            <div class="progress-container">
+                                <div class="progress-step active" id="step1">
+                                    <div class="step-icon">1</div>
+                                    <div>
+                                        <h6>Extracting Email Content</h6>
+                                        <small class="text-muted">Parsing headers, body, and attachments</small>
+                                    </div>
+                                </div>
+                                <div class="progress-step" id="step2">
+                                    <div class="step-icon">2</div>
+                                    <div>
+                                        <h6>Running Security Checks</h6>
+                                        <small class="text-muted">Analyzing headers, sender, and content</small>
+                                    </div>
+                                </div>
+                                <div class="progress-step" id="step3">
+                                    <div class="step-icon">3</div>
+                                    <div>
+                                        <h6>Checking URL Reputation</h6>
+                                        <small class="text-muted">Verifying links with external databases</small>
+                                    </div>
+                                </div>
+                                <div class="progress-step" id="step4">
+                                    <div class="step-icon">4</div>
+                                    <div>
+                                        <h6>Calculating Risk Score</h6>
+                                        <small class="text-muted">Generating final assessment</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section (Hidden Initially) -->
+        <div id="resultsSection" class="d-none">
+            <!-- Risk Score Overview -->
+            <section class="mb-5">
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <div class="card text-center">
+                            <div class="card-body p-5">
+                                <h2 class="mb-4">Analysis Results</h2>
+                                <div class="risk-score-container mb-4">
+                                    <div class="risk-score-circle" id="riskScoreCircle">
+                                        <span id="riskScoreNumber">0</span>
+                                    </div>
+                                </div>
+                                <div class="mb-4">
+                                    <span class="verdict-badge" id="verdictBadge">Analyzing...</span>
+                                </div>
+                                <p class="lead" id="verdictDescription"></p>
+                                <div class="row text-center mt-4">
+                                    <div class="col-4">
+                                        <h5 id="headerScore">0</h5>
+                                        <small class="text-muted">Header Issues</small>
+                                    </div>
+                                    <div class="col-4">
+                                        <h5 id="senderScore">0</h5>
+                                        <small class="text-muted">Sender Issues</small>
+                                    </div>
+                                    <div class="col-4">
+                                        <h5 id="linkScore">0</h5>
+                                        <small class="text-muted">Link Issues</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Email Information -->
+            <section class="mb-5">
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-envelope me-2"></i>
+                                    Email Information
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>From:</strong>
+                                        <p id="emailFrom" class="text-muted">Loading...</p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>To:</strong>
+                                        <p id="emailTo" class="text-muted">Loading...</p>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-12">
+                                        <strong>Subject:</strong>
+                                        <p id="emailSubject" class="text-muted">Loading...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Detailed Analysis -->
+            <section class="mb-5">
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <h3 class="mb-4">Detailed Analysis</h3>
+                        
+                        <!-- Header Analysis -->
+                        <div class="card threat-category mb-3">
+                            <div class="category-header">
+                                <div class="d-flex align-items-center">
+                                    <div class="category-icon category-icon-header me-3">
+                                        <i class="fas fa-cog"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-0">Header Analysis</h6>
+                                        <small class="text-muted">Email headers and authentication</small>
+                                    </div>
+                                    <span class="badge bg-primary" id="headerBadge">0</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="headerFindings"></div>
+                            </div>
+                        </div>
+
+                        <!-- Sender Analysis -->
+                        <div class="card threat-category mb-3">
+                            <div class="category-header">
+                                <div class="d-flex align-items-center">
+                                    <div class="category-icon category-icon-sender me-3">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-0">Sender Analysis</h6>
+                                        <small class="text-muted">Sender identity and domain verification</small>
+                                    </div>
+                                    <span class="badge bg-warning" id="senderBadge">0</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="senderFindings"></div>
+                            </div>
+                        </div>
+
+                        <!-- Body Analysis -->
+                        <div class="card threat-category mb-3">
+                            <div class="category-header">
+                                <div class="d-flex align-items-center">
+                                    <div class="category-icon category-icon-body me-3">
+                                        <i class="fas fa-file-alt"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-0">Content Analysis</h6>
+                                        <small class="text-muted">Body text and language patterns</small>
+                                    </div>
+                                    <span class="badge bg-success" id="bodyBadge">0</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="bodyFindings"></div>
+                            </div>
+                        </div>
+
+                        <!-- Link Analysis -->
+                        <div class="card threat-category mb-3">
+                            <div class="category-header">
+                                <div class="d-flex align-items-center">
+                                    <div class="category-icon category-icon-links me-3">
+                                        <i class="fas fa-link"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-0">Link Analysis</h6>
+                                        <small class="text-muted">URL reputation and safety checks</small>
+                                    </div>
+                                    <span class="badge bg-danger" id="linksBadge">0</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="linksFindings"></div>
+                                <div id="linksTable" class="mt-3"></div>
+                            </div>
+                        </div>
+
+                        <!-- Attachment Analysis -->
+                        <div class="card threat-category mb-3">
+                            <div class="category-header">
+                                <div class="d-flex align-items-center">
+                                    <div class="category-icon category-icon-attachments me-3">
+                                        <i class="fas fa-paperclip"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-0">Attachment Analysis</h6>
+                                        <small class="text-muted">File types and potential threats</small>
+                                    </div>
+                                    <span class="badge bg-purple" id="attachmentsBadge">0</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="attachmentsFindings"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Action Buttons -->
+            <section class="mb-5">
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <div class="text-center">
+                            <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg me-3">
+                                <i class="fas fa-plus me-2"></i>
+                                Analyze Another Email
+                            </a>
+                            <button class="btn btn-outline-secondary" onclick="window.print()">
+                                <i class="fas fa-print me-2"></i>
+                                Print Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="bg-dark text-light py-4 mt-5">
+        <div class="container text-center">
+            <p>&copy; 2024 Phishing Email Detector. Built for security awareness and education.</p>
+            <p class="small text-muted">
+                This tool is for educational purposes. Always verify suspicious emails through official channels.
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/results.js') }}"></script>
+</body>
+</html>
