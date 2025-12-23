@@ -7,7 +7,11 @@ let statusTimer = null;
 document.addEventListener('DOMContentLoaded', function() {
     const path = window.location.pathname;
     const match = path.match(/\/analyze\/([a-f0-9-]+)/);
-    if (match) {
+    const initial = window.__INITIAL_ANALYSIS__;
+    if (initial) {
+        analysisData = initial;
+        displayResults(initial);
+    } else if (match) {
         analysisId = match[1];
         startAnalysis();
     } else {

@@ -756,8 +756,6 @@ def upload_file():
         
         # Create analysis session
         analysis_id = str(uuid.uuid4())
-        
-        # Store session
         analysis_sessions[analysis_id] = {
             'id': analysis_id,
             'email_content': email_content,
@@ -765,9 +763,77 @@ def upload_file():
             'status': 'processing',
             'created_at': datetime.now()
         }
-        
-        # Redirect to analysis page
-        return redirect(url_for('analyze', analysis_id=analysis_id))
+
+        # Perform synchronous analysis to avoid cross-instance session issues
+        email_data = parse_email_content(email_content)
+        scorer = PhishingScorer()
+        risk_score, findings = scorer.calculate_score(email_data)
+        for url in email_data.get('links', []):
+            try:
+                reputation = get_url_reputation(url)
+                if reputation['google_safe_browsing'] == 'malicious':
+                    findings.append(f"URL flagged by Google Safe Browsing: {url}")
+                    risk_score += 10
+                elif reputation['virustotal'] == 'malicious':
+                    findings.append(f"URL flagged by VirusTotal: {url}")
+                    risk_score += 10
+                elif reputation['virustotal'] == 'suspicious':
+                    findings.append(f"URL marked as suspicious by VirusTotal: {url}")
+                    risk_score += 5
+            except Exception as e:
+                logger.warning(f"Error checking URL reputation for {url}: {e}")
+
+        risk_score = max(0, min(100, risk_score))
+        if risk_score <= 30:
+            verdict = 'safe'
+        elif risk_score <= 60:
+            verdict = 'suspicious'
+        else:
+            verdict = 'phishing'
+
+        breakdown = {
+            'header_spoofing': {'score': 0, 'findings': []},
+            'sender_anomalies': {'score': 0, 'findings': []},
+            'urgency_language': {'score': 0, 'findings': []},
+            'body_red_flags': {'score': 0, 'findings': []},
+            'suspicious_links': {'score': 0, 'findings': []},
+            'attachments': {'score': 0, 'findings': []}
+        }
+        for finding in findings:
+            finding_lower = finding.lower()
+            if any(word in finding_lower for word in ['header', 'spf', 'dkim', 'dmarc', 'reply-to']):
+                breakdown['header_spoofing']['findings'].append(finding)
+            elif any(word in finding_lower for word in ['sender', 'domain', 'typosquatting', 'free email']):
+                breakdown['sender_anomalies']['findings'].append(finding)
+            elif any(word in finding_lower for word in ['urgency', 'urgent', 'immediate', 'expire']):
+                breakdown['urgency_language']['findings'].append(finding)
+            elif any(word in finding_lower for word in ['body', 'greeting', 'credential', 'threat']):
+                breakdown['body_red_flags']['findings'].append(finding)
+            elif any(word in finding_lower for word in ['url', 'link', 'shortened', 'flagged']):
+                breakdown['suspicious_links']['findings'].append(finding)
+            elif any(word in finding_lower for word in ['attachment', 'dangerous', 'suspicious']):
+                breakdown['attachments']['findings'].append(finding)
+
+        initial_response = {
+            'analysis_id': analysis_id,
+            'status': 'completed',
+            'risk_score': risk_score,
+            'verdict': verdict,
+            'breakdown': breakdown,
+            'extracted_info': {
+                'from': email_data.get('from', ''),
+                'subject': email_data.get('subject', ''),
+                'to': email_data.get('to', ''),
+                'links': email_data.get('links', []),
+                'attachments': email_data.get('attachments', [])
+            }
+        }
+
+        analysis_sessions[analysis_id]['status'] = 'completed'
+        analysis_sessions[analysis_id]['completed_at'] = datetime.now()
+        analysis_sessions[analysis_id]['result'] = initial_response
+
+        return render_template('results.html', analysis_id=analysis_id, initial_analysis=initial_response)
         
     except Exception as e:
         logger.error(f"Upload error: {e}")
