@@ -94,6 +94,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Please select a file to analyze.');
             }
         });
+        // Ensure clicking Analyze triggers submission even if some browsers block default
+        if (analyzeBtn) {
+            analyzeBtn.addEventListener('click', (e) => {
+                if (!fileInput.files.length) {
+                    e.preventDefault();
+                    alert('Please select a file to analyze.');
+                    return;
+                }
+                // Explicitly submit to avoid edge cases where default click doesn't submit
+                try {
+                    uploadForm.submit();
+                } catch (_) {}
+            });
+        }
     }
 
     // Text form validation

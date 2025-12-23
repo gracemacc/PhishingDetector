@@ -2,9 +2,9 @@
 
 let analysisData = null;
 let analysisId = null;
+let statusTimer = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Get analysis ID from URL
     const path = window.location.pathname;
     const match = path.match(/\/analyze\/([a-f0-9-]+)/);
     if (match) {
@@ -16,49 +16,72 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function startAnalysis() {
-    // Get the email content from the session
-    fetch(`/api/analyze`, {
+    updateProgress(1);
+    fetch(`/api/analyze/start`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            email_content: getEmailContent(), // This would need to be passed somehow
-            analysis_type: 'file'
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analysis_id: analysisId })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                showError(data.error);
+                return;
+            }
+            pollStatus();
         })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.error) {
-            showError(data.error);
-        } else {
-            analysisData = data;
-            displayResults(data);
-        }
-    })
-    .catch(error => {
-        console.error('Analysis error:', error);
-        showError('Failed to analyze email. Please try again.');
-    });
+        .catch(err => {
+            console.error('Start error:', err);
+            showError('Failed to start analysis. Please try again.');
+        });
 }
 
-// For now, let's simulate the analysis with sample data
+function pollStatus() {
+    if (statusTimer) clearInterval(statusTimer);
+    statusTimer = setInterval(() => {
+        fetch(`/api/analyze/status/${analysisId}`)
+            .then(res => res.json())
+            .then(status => {
+                if (status.error) {
+                    clearInterval(statusTimer);
+                    showError(status.error);
+                    return;
+                }
+                const step = status.current_step || 1;
+                updateProgress(step);
+                if (status.status === 'completed') {
+                    clearInterval(statusTimer);
+                    fetch(`/api/analyze/result/${analysisId}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            analysisData = data;
+                            displayResults(data);
+                        })
+                        .catch(err => {
+                            console.error('Result error:', err);
+                            showError('Failed to load analysis results.');
+                        });
+                }
+                if (status.status === 'error') {
+                    clearInterval(statusTimer);
+                    showError('Analysis failed.');
+                }
+            })
+            .catch(err => {
+                console.error('Status error:', err);
+            });
+    }, 1000);
+}
+
+// Optional: fallback demo if API is unreachable
 function simulateAnalysis() {
-    // Simulate progressive analysis steps
     updateProgress(1);
-    
-    setTimeout(() => {
-        updateProgress(2);
-    }, 1500);
-    
-    setTimeout(() => {
-        updateProgress(3);
-    }, 3000);
-    
+    setTimeout(() => updateProgress(2), 1200);
+    setTimeout(() => updateProgress(3), 2400);
     setTimeout(() => {
         updateProgress(4);
         displayResults(generateSampleData());
-    }, 4500);
+    }, 3600);
 }
 
 function updateProgress(step) {
@@ -258,7 +281,7 @@ function showError(message) {
                         </div>
                         <h4 class="text-danger">Analysis Error</h4>
                         <p class="text-muted">${message}</p>
-                        <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <a href="/" class="btn btn-primary">
                             <i class="fas fa-arrow-left me-2"></i>
                             Back to Upload
                         </a>
@@ -269,5 +292,10 @@ function showError(message) {
     `;
 }
 
-// For demonstration purposes, simulate the analysis
-setTimeout(simulateAnalysis, 1000);
+// Fallback demo after long wait without results
+setTimeout(() => {
+    const progressVisible = !document.getElementById('progressSection').classList.contains('d-none');
+    if (progressVisible && !analysisData) {
+        simulateAnalysis();
+    }
+}, 15000);

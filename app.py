@@ -4,6 +4,7 @@ import json
 import time
 import logging
 from datetime import datetime, timedelta
+import threading
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 from email.parser import BytesParser
@@ -34,6 +35,13 @@ analysis_sessions = {}
 # URL reputation cache
 url_cache = {}
 CACHE_EXPIRY = 3600  # 1 hour
+
+ANALYSIS_STEPS = {
+    1: 'extract',
+    2: 'checks',
+    3: 'url_reputation',
+    4: 'score'
+}
 
 def allowed_file(filename):
     """Check if file extension is allowed"""
@@ -586,6 +594,134 @@ def check_virustotal(url, api_key):
     
     return 'error', 0
 
+def run_analysis(analysis_id):
+    try:
+        session = analysis_sessions.get(analysis_id)
+        if not session:
+            return
+        session['status'] = 'processing'
+        session['progress_step'] = 1
+        email_content = session.get('email_content', '')
+        email_data = parse_email_content(email_content)
+
+        session['progress_step'] = 2
+        scorer = PhishingScorer()
+        risk_score, findings = scorer.calculate_score(email_data)
+
+        session['progress_step'] = 3
+        for url in email_data.get('links', []):
+            try:
+                reputation = get_url_reputation(url)
+                if reputation['google_safe_browsing'] == 'malicious':
+                    findings.append(f"URL flagged by Google Safe Browsing: {url}")
+                    risk_score += 10
+                elif reputation['virustotal'] == 'malicious':
+                    findings.append(f"URL flagged by VirusTotal: {url}")
+                    risk_score += 10
+                elif reputation['virustotal'] == 'suspicious':
+                    findings.append(f"URL marked as suspicious by VirusTotal: {url}")
+                    risk_score += 5
+            except Exception as e:
+                logger.warning(f"Error checking URL reputation for {url}: {e}")
+
+        risk_score = max(0, min(100, risk_score))
+
+        if risk_score <= 30:
+            verdict = 'safe'
+        elif risk_score <= 60:
+            verdict = 'suspicious'
+        else:
+            verdict = 'phishing'
+
+        breakdown = {
+            'header_spoofing': {'score': 0, 'findings': []},
+            'sender_anomalies': {'score': 0, 'findings': []},
+            'urgency_language': {'score': 0, 'findings': []},
+            'body_red_flags': {'score': 0, 'findings': []},
+            'suspicious_links': {'score': 0, 'findings': []},
+            'attachments': {'score': 0, 'findings': []}
+        }
+
+        for finding in findings:
+            finding_lower = finding.lower()
+            if any(word in finding_lower for word in ['header', 'spf', 'dkim', 'dmarc', 'reply-to']):
+                breakdown['header_spoofing']['findings'].append(finding)
+            elif any(word in finding_lower for word in ['sender', 'domain', 'typosquatting', 'free email']):
+                breakdown['sender_anomalies']['findings'].append(finding)
+            elif any(word in finding_lower for word in ['urgency', 'urgent', 'immediate', 'expire']):
+                breakdown['urgency_language']['findings'].append(finding)
+            elif any(word in finding_lower for word in ['body', 'greeting', 'credential', 'threat']):
+                breakdown['body_red_flags']['findings'].append(finding)
+            elif any(word in finding_lower for word in ['url', 'link', 'shortened', 'flagged']):
+                breakdown['suspicious_links']['findings'].append(finding)
+            elif any(word in finding_lower for word in ['attachment', 'dangerous', 'suspicious']):
+                breakdown['attachments']['findings'].append(finding)
+
+        response = {
+            'analysis_id': analysis_id,
+            'status': 'completed',
+            'risk_score': risk_score,
+            'verdict': verdict,
+            'breakdown': breakdown,
+            'extracted_info': {
+                'from': email_data.get('from', ''),
+                'subject': email_data.get('subject', ''),
+                'to': email_data.get('to', ''),
+                'links': email_data.get('links', []),
+                'attachments': email_data.get('attachments', [])
+            }
+        }
+
+        session['progress_step'] = 4
+        session['result'] = response
+        session['status'] = 'completed'
+        session['completed_at'] = datetime.now()
+
+    except Exception as e:
+        logger.error(f"Async analysis error: {e}")
+        if analysis_id in analysis_sessions:
+            analysis_sessions[analysis_id]['status'] = 'error'
+            analysis_sessions[analysis_id]['error_message'] = 'Analysis failed'
+
+@app.route('/api/analyze/start', methods=['POST'])
+def api_analyze_start():
+    try:
+        data = request.get_json()
+        if not data or 'analysis_id' not in data:
+            return jsonify({'error': 'analysis_id is required'}), 400
+        analysis_id = data['analysis_id']
+        session = analysis_sessions.get(analysis_id)
+        if not session:
+            return jsonify({'error': 'Analysis session not found'}), 404
+        if session.get('status') == 'completed':
+            return jsonify({'analysis_id': analysis_id, 'status': 'completed'}), 200
+        session['status'] = 'processing'
+        session['progress_step'] = 1
+        t = threading.Thread(target=run_analysis, args=(analysis_id,), daemon=True)
+        t.start()
+        return jsonify({'analysis_id': analysis_id, 'status': 'processing'}), 202
+    except Exception as e:
+        logger.error(f"Start analysis error: {e}")
+        return jsonify({'error': 'Failed to start analysis'}), 500
+
+@app.route('/api/analyze/status/<analysis_id>')
+def api_analyze_status(analysis_id):
+    session = analysis_sessions.get(analysis_id)
+    if not session:
+        return jsonify({'error': 'Analysis session not found'}), 404
+    step = session.get('progress_step', 1)
+    status = session.get('status', 'processing')
+    return jsonify({'analysis_id': analysis_id, 'status': status, 'current_step': step, 'step_key': ANALYSIS_STEPS.get(step, '')})
+
+@app.route('/api/analyze/result/<analysis_id>')
+def api_analyze_result(analysis_id):
+    session = analysis_sessions.get(analysis_id)
+    if not session:
+        return jsonify({'error': 'Analysis session not found'}), 404
+    if session.get('status') != 'completed':
+        return jsonify({'status': session.get('status', 'processing')}), 202
+    return jsonify(session.get('result', {}))
+
 @app.route('/')
 def index():
     """Homepage with file upload interface"""
@@ -653,11 +789,24 @@ def api_analyze():
     """API endpoint for email analysis"""
     try:
         data = request.get_json()
-        if not data or 'email_content' not in data:
-            return jsonify({'error': 'Email content is required'}), 400
+        if not data:
+            return jsonify({'error': 'Invalid request'}), 400
         
-        email_content = data['email_content']
-        filename = data.get('filename', 'unknown')
+        email_content = None
+        filename = 'unknown'
+        
+        analysis_id = data.get('analysis_id')
+        if analysis_id:
+            session = analysis_sessions.get(analysis_id)
+            if not session:
+                return jsonify({'error': 'Analysis session not found'}), 404
+            email_content = session.get('email_content', '')
+            filename = session.get('filename', 'unknown')
+        elif 'email_content' in data:
+            email_content = data['email_content']
+            filename = data.get('filename', 'unknown')
+        else:
+            return jsonify({'error': 'Email content or analysis_id is required'}), 400
         
         # Parse email
         email_data = parse_email_content(email_content)
@@ -721,7 +870,7 @@ def api_analyze():
                 breakdown['attachments']['findings'].append(finding)
         
         response = {
-            'analysis_id': str(uuid.uuid4()),
+            'analysis_id': analysis_id or str(uuid.uuid4()),
             'status': 'completed',
             'risk_score': risk_score,
             'verdict': verdict,
@@ -734,6 +883,11 @@ def api_analyze():
                 'attachments': email_data.get('attachments', [])
             }
         }
+        
+        if analysis_id:
+            analysis_sessions[analysis_id]['status'] = 'completed'
+            analysis_sessions[analysis_id]['completed_at'] = datetime.now()
+            analysis_sessions[analysis_id]['result'] = response
         
         return jsonify(response)
         
